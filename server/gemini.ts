@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import * as fs from 'fs'
 import * as path from 'path'
+import { insertChatHistory } from './supabase.ts'
 
 // System Prompt for PlaceMate AI Placement Coach
 export const PLACEMENT_COACH_SYSTEM_PROMPT = `You are PlaceMate AI – an intelligent AI Placement Coach and mentor for college students preparing for campus placements, technical interviews, coding rounds, and job recruitment.
@@ -312,6 +313,16 @@ export async function handleChatApi(req: IncomingMessage, res: ServerResponse) {
           })
         )
         return
+      }
+
+      // Save to Supabase public.chat_history table
+      const latestUserMessage =
+        [...messages].reverse().find((m) => m.role === 'user')?.content || ''
+
+      if (latestUserMessage && finalResponseText) {
+        insertChatHistory(latestUserMessage, finalResponseText).catch((dbErr) => {
+          console.error('[Supabase] Failed to insert chat history:', dbErr?.message || dbErr)
+        })
       }
 
       res.statusCode = 200
