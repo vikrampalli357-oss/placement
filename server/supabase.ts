@@ -43,11 +43,14 @@ function getEnvValue(keys: string[]): string {
 }
 
 export function getSupabaseCredentials(): { url: string; key: string } {
-  const url = getEnvValue([
+  const rawUrl = getEnvValue([
     'SUPABASE_URL',
     'VITE_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_URL',
   ])
+
+  // Normalize URL by removing /rest/v1/ or trailing slash if passed
+  const url = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '')
 
   const key = getEnvValue([
     'SUPABASE_KEY',
