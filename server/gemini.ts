@@ -201,148 +201,189 @@ async function callGemini(
   return { text: textPart.trim() }
 }
 
-export async function handleChatApi(req: IncomingMessage, res: ServerResponse) {
-  res.setHeader('Content-Type', 'application/json')
+export function setCorsHeaders(res: ServerResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+}
 
-  let body = ''
-  req.on('data', (chunk) => {
-    body += chunk
-  })
-
-  req.on('end', async () => {
-    try {
-      if (!body.trim()) {
-        res.statusCode = 400
-        res.end(JSON.stringify({ error: 'Request body is empty.' }))
-        return
-      }
-
-      const parsed: ChatRequestBody = JSON.parse(body)
-      const { messages, resumeText } = parsed
-
-      if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        res.statusCode = 400
-        res.end(JSON.stringify({ error: 'Messages array is required.' }))
-        return
-      }
-
-      const apiKey = getApiKey()
-      if (!apiKey) {
-        res.statusCode = 401
-        res.end(
-          JSON.stringify({
-            error:
-              'Gemini API key is not configured. Please add GEMINI_API_KEY to your .env file or set it as an environment variable.',
-            missingKey: true,
-          })
-        )
-        return
-      }
-
-      // Build context including resume text if available
-      let systemPrompt = PLACEMENT_COACH_SYSTEM_PROMPT
-      if (resumeText && resumeText.trim().length > 20) {
-        systemPrompt += `\n\n[USER RESUME CONTEXT (Uploaded by user)]:\n${resumeText.trim()}\n(Use this real resume data when the user asks questions about their resume or projects; do not invent credentials).`
-      }
-
-      // Format history into Gemini format
-      // Group consecutive turns and map 'assistant' to 'model'
-      const history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
-      
-      for (const m of messages) {
-        if (!m.content || !m.content.trim()) continue
-        const role = m.role === 'assistant' ? 'model' : 'user'
-        // Skip system role in contents as it's passed via systemInstruction
-        if (m.role === 'system') continue
-
-        // Ensure alternating roles or combine if needed
-        if (history.length > 0 && history[history.length - 1]!.role === role) {
-          history[history.length - 1]!.parts.push({ text: m.content })
-        } else {
-          history.push({
-            role,
-            parts: [{ text: m.content }],
-          })
-        }
-      }
-
-      // Ensure the first message is from 'user'
-      while (history.length > 0 && history[0]!.role !== 'user') {
-        history.shift()
-      }
-
-      if (history.length === 0) {
-        res.statusCode = 400
-        res.end(JSON.stringify({ error: 'No user messages provided in conversation.' }))
-        return
-      }
-
-      // Try candidate models
-      let lastError = ''
-      let finalResponseText = ''
-
-      for (const model of CANDIDATE_MODELS) {
-        try {
-          const result = await callGemini(apiKey, model, systemPrompt, history)
-          if (result.text) {
-            finalResponseText = result.text
-            break
-          }
-          if (result.status === 429) {
-            lastError = 'Gemini API rate limit reached. Please wait a moment and try again.'
-            // try next model
-            continue
-          }
-          if (result.status === 503) {
-            lastError = 'Gemini model temporarily at high demand. Trying alternate model...'
-            // wait 600ms then try next model
-            await new Promise((resolve) => setTimeout(resolve, 600))
-            continue
-          }
-          lastError = result.error || 'Unknown error calling model ' + model
-        } catch (err: any) {
-          lastError = err?.message || String(err)
-        }
-      }
-
-      if (!finalResponseText) {
-        res.statusCode = 502
-        res.end(
-          JSON.stringify({
-            error: lastError || 'Failed to get response from Gemini API. Please verify your connection and key.',
-          })
-        )
-        return
-      }
-
-      // Save to Supabase public.chat_history table before responding
-      // Awaiting guarantees the record is committed to Supabase before the frontend displays the answer
-      const latestUserMessage =
-        [...messages].reverse().find((m) => m.role === 'user')?.content || ''
-
-      if (latestUserMessage && finalResponseText) {
-        try {
-          const insertRes = await insertChatHistory(latestUserMessage, finalResponseText)
-          if (insertRes.success) {
-            console.log('[Supabase] Successfully committed to public.chat_history before response')
-          } else {
-            console.warn('[Supabase] Warning during insert:', insertRes.error)
-          }
-        } catch (dbErr: any) {
-          console.error('[Supabase] Failed to insert chat history:', dbErr?.message || dbErr)
-        }
-      }
-
-      res.statusCode = 200
-      res.end(JSON.stringify({ response: finalResponseText }))
-    } catch (e: any) {
-      res.statusCode = 500
-      res.end(JSON.stringify({ error: `Internal server error: ${e?.message || e}` }))
+export async function parseRequestBody<T = any>(req: any): Promise<T> {
+  // If Vercel or Express pre-parsed req.body
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === 'object') {
+      return req.body as T
     }
+    if (typeof req.body === 'string' && req.body.trim()) {
+      try {
+        return JSON.parse(req.body) as T
+      } catch {
+        // Fallback to stream reading below
+      }
+    }
+  }
+
+  // Otherwise read stream data (for Vite dev server)
+  return new Promise<T>((resolve, reject) => {
+    let body = ''
+    req.on('data', (chunk: any) => {
+      body += chunk
+    })
+    req.on('end', () => {
+      if (!body.trim()) {
+        resolve({} as T)
+        return
+      }
+      try {
+        resolve(JSON.parse(body) as T)
+      } catch (err) {
+        reject(new Error('Invalid JSON request body'))
+      }
+    })
+    req.on('error', (err: any) => {
+      reject(err)
+    })
   })
 }
 
-export function handleHealthApi(_req: IncomingMessage, res: ServerResponse) {
+export async function handleChatApi(req: IncomingMessage & { body?: any }, res: ServerResponse) {
+  setCorsHeaders(res)
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200
+    res.end()
+    return
+  }
+
+  res.setHeader('Content-Type', 'application/json')
+
+  try {
+    const parsed: ChatRequestBody = await parseRequestBody(req)
+    const { messages, resumeText } = parsed || {}
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      res.statusCode = 400
+      res.end(JSON.stringify({ error: 'Messages array is required in request body.' }))
+      return
+    }
+
+    const apiKey = getApiKey()
+    if (!apiKey) {
+      console.error('[Gemini API Error] GEMINI_API_KEY environment variable is missing!')
+      res.statusCode = 401
+      res.end(
+        JSON.stringify({
+          error:
+            'Gemini API key is not configured in environment variables. On Vercel, please add GEMINI_API_KEY in Project Settings -> Environment Variables.',
+          missingKey: true,
+        })
+      )
+      return
+    }
+
+    // Build context including resume text if available
+    let systemPrompt = PLACEMENT_COACH_SYSTEM_PROMPT
+    if (resumeText && resumeText.trim().length > 20) {
+      systemPrompt += `\n\n[USER RESUME CONTEXT (Uploaded by user)]:\n${resumeText.trim()}\n(Use this real resume data when the user asks questions about their resume or projects; do not invent credentials).`
+    }
+
+    // Format history into Gemini format
+    const history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+
+    for (const m of messages) {
+      if (!m.content || !m.content.trim()) continue
+      const role = m.role === 'assistant' ? 'model' : 'user'
+      if (m.role === 'system') continue
+
+      if (history.length > 0 && history[history.length - 1]!.role === role) {
+        history[history.length - 1]!.parts.push({ text: m.content })
+      } else {
+        history.push({
+          role,
+          parts: [{ text: m.content }],
+        })
+      }
+    }
+
+    while (history.length > 0 && history[0]!.role !== 'user') {
+      history.shift()
+    }
+
+    if (history.length === 0) {
+      res.statusCode = 400
+      res.end(JSON.stringify({ error: 'No user messages provided in conversation.' }))
+      return
+    }
+
+    // Try candidate models
+    let lastError = ''
+    let finalResponseText = ''
+
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const result = await callGemini(apiKey, model, systemPrompt, history)
+        if (result.text) {
+          finalResponseText = result.text
+          break
+        }
+        if (result.status === 429) {
+          lastError = 'Gemini API rate limit reached. Please wait a moment and try again.'
+          continue
+        }
+        if (result.status === 503) {
+          lastError = 'Gemini model temporarily at high demand. Trying alternate model...'
+          await new Promise((resolve) => setTimeout(resolve, 600))
+          continue
+        }
+        lastError = result.error || 'Unknown error calling model ' + model
+      } catch (err: any) {
+        lastError = err?.message || String(err)
+      }
+    }
+
+    if (!finalResponseText) {
+      console.error('[Gemini API Error] Candidate models failed:', lastError)
+      res.statusCode = 502
+      res.end(
+        JSON.stringify({
+          error: lastError || 'Failed to get response from Gemini API. Please check GEMINI_API_KEY in Vercel.',
+        })
+      )
+      return
+    }
+
+    // Save to Supabase public.chat_history table before responding
+    const latestUserMessage =
+      [...messages].reverse().find((m) => m.role === 'user')?.content || ''
+
+    if (latestUserMessage && finalResponseText) {
+      try {
+        const insertRes = await insertChatHistory(latestUserMessage, finalResponseText)
+        if (insertRes.success) {
+          console.log('[Supabase] Successfully committed to public.chat_history before response')
+        } else {
+          console.warn('[Supabase] Warning during insert:', insertRes.error)
+        }
+      } catch (dbErr: any) {
+        console.error('[Supabase] Failed to insert chat history:', dbErr?.message || dbErr)
+      }
+    }
+
+    res.statusCode = 200
+    res.end(JSON.stringify({ response: finalResponseText }))
+  } catch (e: any) {
+    console.error('[Chat API Internal Error]:', e?.message || e)
+    res.statusCode = 500
+    res.end(JSON.stringify({ error: `Internal server error: ${e?.message || e}` }))
+  }
+}
+
+export function handleHealthApi(req: IncomingMessage, res: ServerResponse) {
+  setCorsHeaders(res)
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200
+    res.end()
+    return
+  }
+
   res.setHeader('Content-Type', 'application/json')
   const apiKey = getApiKey()
   res.statusCode = 200
@@ -350,40 +391,39 @@ export function handleHealthApi(_req: IncomingMessage, res: ServerResponse) {
     JSON.stringify({
       status: 'ok',
       hasApiKey: Boolean(apiKey),
+      timestamp: new Date().toISOString(),
     })
   )
 }
 
-/**
- * Handles GET & POST /api/history
- * GET: Returns paginated chat history from public.chat_history table, sorted by created_at DESC.
- * POST: Immediately saves question and answer into public.chat_history table.
- */
-export async function handleHistoryApi(req: IncomingMessage, res: ServerResponse) {
+export async function handleHistoryApi(req: IncomingMessage & { body?: any }, res: ServerResponse) {
+  setCorsHeaders(res)
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200
+    res.end()
+    return
+  }
+
   res.setHeader('Content-Type', 'application/json')
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
 
   if (req.method === 'POST') {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk
-    })
-    req.on('end', async () => {
-      try {
-        const { question, answer } = JSON.parse(body || '{}')
-        if (!question) {
-          res.statusCode = 400
-          res.end(JSON.stringify({ success: false, error: 'Question is required' }))
-          return
-        }
-        const insertRes = await insertChatHistory(question, answer || '')
-        res.statusCode = insertRes.success ? 200 : 500
-        res.end(JSON.stringify(insertRes))
-      } catch (err: any) {
-        res.statusCode = 500
-        res.end(JSON.stringify({ success: false, error: err?.message || String(err) }))
+    try {
+      const parsed = await parseRequestBody(req)
+      const { question, answer } = parsed || {}
+      if (!question) {
+        res.statusCode = 400
+        res.end(JSON.stringify({ success: false, error: 'Question is required' }))
+        return
       }
-    })
+      const insertRes = await insertChatHistory(question, answer || '')
+      res.statusCode = insertRes.success ? 200 : 500
+      res.end(JSON.stringify(insertRes))
+    } catch (err: any) {
+      console.error('[History API Error]:', err?.message || err)
+      res.statusCode = 500
+      res.end(JSON.stringify({ success: false, error: err?.message || String(err) }))
+    }
     return
   }
 
@@ -401,6 +441,7 @@ export async function handleHistoryApi(req: IncomingMessage, res: ServerResponse
     res.statusCode = result.success ? 200 : 500
     res.end(JSON.stringify(result))
   } catch (err: any) {
+    console.error('[History GET Error]:', err?.message || err)
     res.statusCode = 500
     res.end(
       JSON.stringify({

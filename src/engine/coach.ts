@@ -393,9 +393,11 @@ export async function handleTurn(
     }
 
     // If server responded with an error (e.g. 401, 429, 502)
-    throw new Error(data.error || `Server responded with HTTP ${res.status}`)
+    const errText = data?.error || `Server responded with HTTP ${res.status}`
+    console.error('[PlaceMate AI Error] Backend API error details:', { status: res.status, data })
+    throw new Error(errText)
   } catch (err: any) {
-    console.warn('AI service error:', err.message)
+    console.error('[PlaceMate AI Error] Failed to call Gemini API via /api/chat:', err.message || err)
 
     // Attempt local fallback
     const fallback = runLocalFallback(q, session)
