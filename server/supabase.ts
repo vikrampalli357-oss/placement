@@ -137,3 +137,100 @@ export async function insertChatHistory(
     return { success: false, error: err?.message || String(err) }
   }
 }
+
+export interface ChatHistoryRecord {
+  id: number
+  question: string
+  answer: string
+  created_at: string
+}
+
+export interface FetchChatHistoryOptions {
+  page?: number
+  pageSize?: number
+}
+
+export interface FetchChatHistoryResult {
+  success: boolean
+  records: ChatHistoryRecord[]
+  total: number
+  page: number
+  pageSize: number
+  hasMore: boolean
+  error?: string
+}
+
+/**
+ * Fetches all saved chat history from public.chat_history table.
+ * - Sorts by created_at DESC (newest first).
+ * - No .limit(4) or fixed 4-record limit.
+ * - Supports pagination (page, pageSize) or fetching larger batches with 'Load More'.
+ */
+export async function fetchChatHistory(
+  options: FetchChatHistoryOptions = {}
+): Promise<FetchChatHistoryResult> {
+  const page = Math.max(1, Number(options.page) || 1)
+  const pageSize = Math.max(1, Number(options.pageSize) || 20)
+
+  try {
+    const client = getSupabaseClient()
+    if (!client) {
+      return {
+        success: false,
+        records: [],
+        total: 0,
+        page,
+        pageSize,
+        hasMore: false,
+        error: 'Supabase credentials not configured in environment or .env',
+      }
+    }
+
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    const { data, count, error } = await client
+      .from('chat_history')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (error) {
+      console.error('[Supabase] Fetch from public.chat_history failed:', error.message)
+      return {
+        success: false,
+        records: [],
+        total: 0,
+        page,
+        pageSize,
+        hasMore: false,
+        error: error.message,
+      }
+    }
+
+    const total = count ?? (data?.length || 0)
+    const records = (data as ChatHistoryRecord[]) || []
+    const hasMore = total > to + 1
+
+    return {
+      success: true,
+      records,
+      total,
+      page,
+      pageSize,
+      hasMore,
+    }
+  } catch (err: any) {
+    console.error('[Supabase] Exception during fetchChatHistory:', err?.message || err)
+    return {
+      success: false,
+      records: [],
+      total: 0,
+      page,
+      pageSize,
+      hasMore: false,
+      error: err?.message || String(err),
+    }
+  }
+}
+

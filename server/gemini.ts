@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import * as fs from 'fs'
 import * as path from 'path'
-import { insertChatHistory } from './supabase.ts'
+import { insertChatHistory, fetchChatHistory } from './supabase.ts'
 
 // System Prompt for PlaceMate AI Placement Coach
 export const PLACEMENT_COACH_SYSTEM_PROMPT = `You are PlaceMate AI – an intelligent AI Placement Coach and mentor for college students preparing for campus placements, technical interviews, coding rounds, and job recruitment.
@@ -345,3 +345,41 @@ export function handleHealthApi(_req: IncomingMessage, res: ServerResponse) {
     })
   )
 }
+
+/**
+ * Handles GET /api/history?page=1&pageSize=20
+ * Returns paginated chat history from public.chat_history table, sorted by created_at DESC.
+ * No 4-record limit.
+ */
+export async function handleHistoryApi(req: IncomingMessage, res: ServerResponse) {
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+
+  try {
+    const urlObj = new URL(req.url || '', 'http://localhost')
+    const pageParam = urlObj.searchParams.get('page')
+    const pageSizeParam = urlObj.searchParams.get('pageSize')
+
+    const page = pageParam ? parseInt(pageParam, 10) : 1
+    const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : 20
+
+    const result = await fetchChatHistory({ page, pageSize })
+
+    res.statusCode = result.success ? 200 : 500
+    res.end(JSON.stringify(result))
+  } catch (err: any) {
+    res.statusCode = 500
+    res.end(
+      JSON.stringify({
+        success: false,
+        records: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        hasMore: false,
+        error: err?.message || String(err),
+      })
+    )
+  }
+}
+

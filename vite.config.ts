@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
-import { handleChatApi, handleHealthApi } from './server/gemini.ts'
+import { handleChatApi, handleHealthApi, handleHistoryApi } from './server/gemini.ts'
 
 function chatApiPlugin(): Plugin {
   return {
@@ -12,6 +12,8 @@ function chatApiPlugin(): Plugin {
           handleChatApi(req, res)
         } else if (url === '/api/health' && req.method === 'GET') {
           handleHealthApi(req, res)
+        } else if (url === '/api/history' && req.method === 'GET') {
+          handleHistoryApi(req, res)
         } else {
           next()
         }
@@ -24,6 +26,8 @@ function chatApiPlugin(): Plugin {
           handleChatApi(req, res)
         } else if (url === '/api/health' && req.method === 'GET') {
           handleHealthApi(req, res)
+        } else if (url === '/api/history' && req.method === 'GET') {
+          handleHistoryApi(req, res)
         } else {
           next()
         }
