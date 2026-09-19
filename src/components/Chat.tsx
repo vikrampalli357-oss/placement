@@ -280,13 +280,13 @@ export function Chat() {
       {/* ── Fixed Header ── */}
       <header className="pane-head">
         <div className="brand-inline">
-          <span className="mark" aria-hidden="true">PM</span>
+          <span className="mark" aria-hidden="true">🤖</span>
           <div className="brand-text">
             <div className="head-title-row">
               <h1>PlaceMate AI</h1>
-              <span className="ai-badge">AI Placement Coach Active</span>
+              <span className="ai-badge">AI Placement Coach</span>
             </div>
-            <p>Your 24/7 intelligent coach for aptitude, coding, technical rounds, mock interviews, and career plans</p>
+            <p>Your AI Placement Preparation Coach</p>
           </div>
           <button
             type="button"
@@ -364,7 +364,7 @@ export function Chat() {
               </div>
               <div className="history-q-content">{record.question}</div>
               <div className="history-a-divider">
-                <span>🤖 PlaceMate Coach Answer</span>
+                <span>🤖 PlaceMate AI Answer</span>
               </div>
               <div className="history-a-content">
                 <MessageBody text={record.answer} />
@@ -413,7 +413,15 @@ export function Chat() {
           >
             {messages.map((m) => (
               <div key={m.id} className={`bubble-row ${m.role}`}>
+                {m.role === 'assistant' ? (
+                  <div className="avatar assistant-avatar" title="PlaceMate AI">🤖</div>
+                ) : null}
                 <div className={`bubble ${m.role}`}>
+                  {m.role === 'assistant' ? (
+                    <div className="ai-message-header">
+                      <span className="ai-name">PlaceMate AI</span>
+                    </div>
+                  ) : null}
                   <MessageBody text={m.text} blocks={m.blocks} outcome={m.outcome} error={m.error} />
                   {m.interview?.prompt ? <p className="pre">{m.interview.prompt}</p> : null}
                   {m.interview?.score != null ? <p className="score">⭐ Score: {m.interview.score}/10</p> : null}
@@ -426,6 +434,7 @@ export function Chat() {
 
             {busy ? (
               <div className="bubble-row assistant">
+                <div className="avatar assistant-avatar">🤖</div>
                 <div className="bubble assistant typing" aria-label="Thinking">
                   <span /><span /><span />
                 </div>
