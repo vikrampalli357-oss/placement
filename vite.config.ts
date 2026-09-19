@@ -12,7 +12,7 @@ function chatApiPlugin(): Plugin {
           handleChatApi(req, res)
         } else if (url === '/api/health' && req.method === 'GET') {
           handleHealthApi(req, res)
-        } else if (url === '/api/history' && req.method === 'GET') {
+        } else if (url === '/api/history' && (req.method === 'GET' || req.method === 'POST')) {
           handleHistoryApi(req, res)
         } else {
           next()
@@ -26,7 +26,7 @@ function chatApiPlugin(): Plugin {
           handleChatApi(req, res)
         } else if (url === '/api/health' && req.method === 'GET') {
           handleHealthApi(req, res)
-        } else if (url === '/api/history' && req.method === 'GET') {
+        } else if (url === '/api/history' && (req.method === 'GET' || req.method === 'POST')) {
           handleHistoryApi(req, res)
         } else {
           next()

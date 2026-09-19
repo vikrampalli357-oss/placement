@@ -315,14 +315,22 @@ export async function handleChatApi(req: IncomingMessage, res: ServerResponse) {
         return
       }
 
-      // Save to Supabase public.chat_history table
+      // Save to Supabase public.chat_history table before responding
+      // Awaiting guarantees the record is committed to Supabase before the frontend displays the answer
       const latestUserMessage =
         [...messages].reverse().find((m) => m.role === 'user')?.content || ''
 
       if (latestUserMessage && finalResponseText) {
-        insertChatHistory(latestUserMessage, finalResponseText).catch((dbErr) => {
+        try {
+          const insertRes = await insertChatHistory(latestUserMessage, finalResponseText)
+          if (insertRes.success) {
+            console.log('[Supabase] Successfully committed to public.chat_history before response')
+          } else {
+            console.warn('[Supabase] Warning during insert:', insertRes.error)
+          }
+        } catch (dbErr: any) {
           console.error('[Supabase] Failed to insert chat history:', dbErr?.message || dbErr)
-        })
+        }
       }
 
       res.statusCode = 200
@@ -347,14 +355,39 @@ export function handleHealthApi(_req: IncomingMessage, res: ServerResponse) {
 }
 
 /**
- * Handles GET /api/history?page=1&pageSize=20
- * Returns paginated chat history from public.chat_history table, sorted by created_at DESC.
- * No 4-record limit.
+ * Handles GET & POST /api/history
+ * GET: Returns paginated chat history from public.chat_history table, sorted by created_at DESC.
+ * POST: Immediately saves question and answer into public.chat_history table.
  */
 export async function handleHistoryApi(req: IncomingMessage, res: ServerResponse) {
   res.setHeader('Content-Type', 'application/json')
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
 
+  if (req.method === 'POST') {
+    let body = ''
+    req.on('data', (chunk) => {
+      body += chunk
+    })
+    req.on('end', async () => {
+      try {
+        const { question, answer } = JSON.parse(body || '{}')
+        if (!question) {
+          res.statusCode = 400
+          res.end(JSON.stringify({ success: false, error: 'Question is required' }))
+          return
+        }
+        const insertRes = await insertChatHistory(question, answer || '')
+        res.statusCode = insertRes.success ? 200 : 500
+        res.end(JSON.stringify(insertRes))
+      } catch (err: any) {
+        res.statusCode = 500
+        res.end(JSON.stringify({ success: false, error: err?.message || String(err) }))
+      }
+    })
+    return
+  }
+
+  // GET handling
   try {
     const urlObj = new URL(req.url || '', 'http://localhost')
     const pageParam = urlObj.searchParams.get('page')
@@ -382,4 +415,5 @@ export async function handleHistoryApi(req: IncomingMessage, res: ServerResponse
     )
   }
 }
+
 

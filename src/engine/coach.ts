@@ -400,6 +400,30 @@ export async function handleTurn(
     // Attempt local fallback
     const fallback = runLocalFallback(q, session)
     if (fallback) {
+      // Save fallback Q&A to Supabase so offline answers are also saved
+      const fallbackText = fallback.messages
+        .map((m) => {
+          if (m.text) return m.text
+          if (m.outcome && m.outcome.kind === 'solved') {
+            return `Topic: ${m.outcome.topic}\nFormula: ${m.outcome.formula}\nSolution:\n${m.outcome.steps.join('\n')}\nFinal Answer: ${m.outcome.answer}`
+          }
+          if (m.interview?.prompt) return m.interview.prompt
+          if (m.blocks) {
+            return m.blocks.map((b) => (b.type === 'code' ? `\`\`\`${b.language}\n${b.code}\n\`\`\`` : b.text)).join('\n\n')
+          }
+          return ''
+        })
+        .filter(Boolean)
+        .join('\n\n')
+
+      if (fallbackText) {
+        fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q, answer: fallbackText }),
+        }).catch((e) => console.warn('[Supabase Fallback Save] Error:', e))
+      }
+
       return fallback
     }
 
