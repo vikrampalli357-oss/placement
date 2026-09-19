@@ -58,6 +58,22 @@ export function Chat() {
   const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat')
   const [showScrollBottom, setShowScrollBottom] = useState(false)
 
+  // Dark Theme State with localStorage persistence
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('pm_theme')
+    if (saved === 'dark' || saved === 'light') return saved
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('pm_theme', theme)
+  }, [theme])
+
+  function toggleTheme() {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }
+
   // Supabase Chat History state
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [historyTotal, setHistoryTotal] = useState<number>(0)
@@ -265,13 +281,23 @@ export function Chat() {
       <header className="pane-head">
         <div className="brand-inline">
           <span className="mark" aria-hidden="true">PM</span>
-          <div>
+          <div className="brand-text">
             <div className="head-title-row">
               <h1>PlaceMate AI</h1>
               <span className="ai-badge">AI Placement Coach Active</span>
             </div>
             <p>Your 24/7 intelligent coach for aptitude, coding, technical rounds, mock interviews, and career plans</p>
           </div>
+          <button
+            type="button"
+            className="theme-toggle-btn"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle theme mode"
+          >
+            <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span className="theme-toggle-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
         </div>
       </header>
 

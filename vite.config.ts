@@ -6,6 +6,13 @@ function chatApiPlugin(): Plugin {
   return {
     name: 'chat-api-plugin',
     configureServer(server) {
+      // Force no-cache headers for all dev responses so Chrome always fetches fresh
+      server.middlewares.use((_req, res, next) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+        res.setHeader('Pragma', 'no-cache')
+        res.setHeader('Expires', '0')
+        next()
+      })
       server.middlewares.use((req, res, next) => {
         const url = req.url?.split('?')[0]
         if (url === '/api/chat' && req.method === 'POST') {
