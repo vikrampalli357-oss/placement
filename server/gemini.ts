@@ -111,21 +111,26 @@ function getApiKey(): string {
 
   // 1. Check process.env first
   for (const k of envKeys) {
-    const val = process.env[k]
-    if (val && typeof val === 'string' && val.trim() !== '' && !val.includes('your_gemini_api_key')) {
-      return val.trim()
+    try {
+      const val = process.env[k]
+      if (val && typeof val === 'string' && val.trim() !== '' && !val.includes('your_gemini_api_key')) {
+        return val.trim()
+      }
+    } catch {
+      // ignore
     }
   }
 
-  // 2. Check .env and .env.local in process.cwd()
-  const envPaths = [
-    path.resolve(process.cwd(), '.env'),
-    path.resolve(process.cwd(), '.env.local'),
-  ]
+  // 2. Check .env and .env.local in process.cwd() safely
+  try {
+    const cwd = process.cwd()
+    const envPaths = [
+      path.resolve(cwd, '.env'),
+      path.resolve(cwd, '.env.local'),
+    ]
 
-  for (const envPath of envPaths) {
-    if (fs.existsSync(envPath)) {
-      try {
+    for (const envPath of envPaths) {
+      if (fs.existsSync && fs.existsSync(envPath)) {
         const content = fs.readFileSync(envPath, 'utf-8')
         for (const k of envKeys) {
           const match = content.match(new RegExp(`^(?:${k})\\s*=\\s*(.+)$`, 'm'))
@@ -136,10 +141,10 @@ function getApiKey(): string {
             }
           }
         }
-      } catch {
-        // ignore read errors
       }
     }
+  } catch {
+    // ignore read errors
   }
 
   return ''
