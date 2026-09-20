@@ -49,6 +49,21 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
   // Count total env vars so we know Vercel is injecting them at all
   const totalEnvCount = allEnvKeys.length
 
+  // --- Deep diagnostic for GEMINI_API_KEY specifically ---
+  // Reveals WHY the check failed, without showing the actual value
+  const rawVal = process.env['GEMINI_API_KEY']
+  const geminiKeyDiagnostic = {
+    exists: rawVal !== undefined,
+    rawLength: rawVal !== undefined ? rawVal.length : null,
+    trimmedLength: rawVal !== undefined ? rawVal.trim().length : null,
+    isEmpty: rawVal === '',
+    isUndefined: rawVal === undefined,
+    containsPlaceholder: rawVal ? rawVal.includes('your_gemini') : false,
+    // First 4 chars only — safe to confirm it starts with AIza
+    startsWithAIza: rawVal ? rawVal.trim().startsWith('AIza') : false,
+    firstFourChars: rawVal && rawVal.trim().length >= 4 ? rawVal.trim().slice(0, 4) : null,
+  }
+
   res.setHeader('Content-Type', 'application/json')
   res.statusCode = 200
   res.end(
@@ -65,11 +80,14 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
       checkedVariables: checkedResults,
 
       // --- DIAGNOSTIC: all env var NAMES that mention gemini/google/api_key ---
-      // This reveals the exact name Vercel has stored (without the value)
       relatedEnvVarNamesFound: relatedKeyNames,
 
       // --- Total env vars visible to this function ---
       totalEnvVarsVisible: totalEnvCount,
+
+      // --- WHY the GEMINI_API_KEY check failed ---
+      geminiKeyDiagnostic,
     })
   )
 }
+
