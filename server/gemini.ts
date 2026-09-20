@@ -167,11 +167,11 @@ export interface ChatRequestBody {
 }
 
 const CANDIDATE_MODELS = [
-  'gemini-3.6-flash',
-  'gemini-flash-lite-latest',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-flash-latest',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro',
 ]
 
 async function callGemini(
@@ -316,30 +316,67 @@ export async function handleChatApi(req: IncomingMessage & { body?: any }, res: 
   }
 
   res.setHeader('Content-Type', 'application/json')
+  const stages: string[] = []
+
+  // STAGE 1: REQUEST_RECEIVED
+  stages.push('REQUEST_RECEIVED')
+  console.log('[Chat API Stage] 1. REQUEST_RECEIVED')
 
   try {
     const parsed: ChatRequestBody = await parseRequestBody(req)
     const { messages, resumeText } = parsed || {}
 
+    // STAGE 2: QUESTION_RECEIVED
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       res.statusCode = 400
-      res.end(JSON.stringify({ error: 'Messages array is required in request body.' }))
+      res.end(
+        JSON.stringify({
+          error: 'Messages array is required in request body.',
+          stageFailed: 'QUESTION_RECEIVED',
+          stagesCompleted: stages,
+        })
+      )
       return
     }
 
+    const latestUserQuestion = [...messages]
+      .reverse()
+      .find((m) => m.role === 'user' && m.content && m.content.trim())?.content?.trim()
+
+    if (!latestUserQuestion) {
+      res.statusCode = 400
+      res.end(
+        JSON.stringify({
+          error: 'No user question found in request messages.',
+          stageFailed: 'QUESTION_RECEIVED',
+          stagesCompleted: stages,
+        })
+      )
+      return
+    }
+
+    stages.push('QUESTION_RECEIVED')
+    console.log(`[Chat API Stage] 2. QUESTION_RECEIVED: "${latestUserQuestion.slice(0, 60)}..."`)
+
+    // STAGE 3: API_KEY_FOUND
     const apiKey = getApiKey()
     if (!apiKey) {
-      console.error('[Gemini API Error] GEMINI_API_KEY environment variable is missing!')
+      console.error('[Chat API Stage Error] STAGE API_KEY_FOUND failed: Key missing or empty in process.env')
       res.statusCode = 401
       res.end(
         JSON.stringify({
           error:
             'Gemini API key is not configured in environment variables. On Vercel, please add GEMINI_API_KEY in Project Settings -> Environment Variables.',
+          stageFailed: 'API_KEY_FOUND',
+          stagesCompleted: stages,
           missingKey: true,
         })
       )
       return
     }
+
+    stages.push('API_KEY_FOUND')
+    console.log('[Chat API Stage] 3. API_KEY_FOUND')
 
     // Build context including resume text if available
     let systemPrompt = PLACEMENT_COACH_SYSTEM_PROMPT
@@ -371,27 +408,42 @@ export async function handleChatApi(req: IncomingMessage & { body?: any }, res: 
 
     if (history.length === 0) {
       res.statusCode = 400
-      res.end(JSON.stringify({ error: 'No user messages provided in conversation.' }))
+      res.end(
+        JSON.stringify({
+          error: 'No valid user messages provided in conversation.',
+          stageFailed: 'QUESTION_RECEIVED',
+          stagesCompleted: stages,
+        })
+      )
       return
     }
 
-    // Try candidate models
+    // STAGE 4 & 5: GEMINI_REQUEST_SENT & GEMINI_RESPONSE_RECEIVED
     let lastError = ''
     let finalResponseText = ''
+    let sentStageAdded = false
 
     for (const model of CANDIDATE_MODELS) {
+      if (!sentStageAdded) {
+        stages.push('GEMINI_REQUEST_SENT')
+        console.log(`[Chat API Stage] 4. GEMINI_REQUEST_SENT (model: ${model})`)
+        sentStageAdded = true
+      }
+
       try {
         const result = await callGemini(apiKey, model, systemPrompt, history)
         if (result.text) {
           finalResponseText = result.text
+          stages.push('GEMINI_RESPONSE_RECEIVED')
+          console.log(`[Chat API Stage] 5. GEMINI_RESPONSE_RECEIVED (model: ${model})`)
           break
         }
         if (result.status === 429) {
-          lastError = 'Gemini API rate limit reached. Please wait a moment and try again.'
+          lastError = `Gemini API rate limit (429) reached on ${model}.`
           continue
         }
         if (result.status === 503) {
-          lastError = 'Gemini model temporarily at high demand. Trying alternate model...'
+          lastError = `Gemini model ${model} temporarily busy (503).`
           await new Promise((resolve) => setTimeout(resolve, 600))
           continue
         }
@@ -402,39 +454,48 @@ export async function handleChatApi(req: IncomingMessage & { body?: any }, res: 
     }
 
     if (!finalResponseText) {
-      console.error('[Gemini API Error] Candidate models failed:', lastError)
+      console.error('[Chat API Stage Error] STAGE GEMINI_RESPONSE_RECEIVED failed:', lastError)
       res.statusCode = 502
       res.end(
         JSON.stringify({
           error: lastError || 'Failed to get response from Gemini API. Please check GEMINI_API_KEY in Vercel.',
+          stageFailed: 'GEMINI_RESPONSE_RECEIVED',
+          stagesCompleted: stages,
         })
       )
       return
     }
 
-    // Save to Supabase public.chat_history table before responding
-    const latestUserMessage =
-      [...messages].reverse().find((m) => m.role === 'user')?.content || ''
+    // STAGE 6: RESPONSE_RETURNED
+    stages.push('RESPONSE_RETURNED')
+    console.log('[Chat API Stage] 6. RESPONSE_RETURNED')
 
-    if (latestUserMessage && finalResponseText) {
+    // Optional non-blocking insert into chat_history table
+    if (latestUserQuestion && finalResponseText) {
       try {
-        const insertRes = await insertChatHistory(latestUserMessage, finalResponseText)
-        if (insertRes.success) {
-          console.log('[Supabase] Successfully committed to public.chat_history before response')
-        } else {
-          console.warn('[Supabase] Warning during insert:', insertRes.error)
-        }
+        await insertChatHistory(latestUserQuestion, finalResponseText)
       } catch (dbErr: any) {
-        console.error('[Supabase] Failed to insert chat history:', dbErr?.message || dbErr)
+        console.warn('[Supabase non-blocking warning]:', dbErr?.message || dbErr)
       }
     }
 
     res.statusCode = 200
-    res.end(JSON.stringify({ response: finalResponseText }))
+    res.end(
+      JSON.stringify({
+        response: finalResponseText,
+        stagesCompleted: stages,
+      })
+    )
   } catch (e: any) {
-    console.error('[Chat API Internal Error]:', e?.message || e)
+    console.error('[Chat API Internal Exception]:', e?.message || e)
     res.statusCode = 500
-    res.end(JSON.stringify({ error: `Internal server error: ${e?.message || e}` }))
+    res.end(
+      JSON.stringify({
+        error: `Internal server error: ${e?.message || e}`,
+        stageFailed: 'INTERNAL_EXCEPTION',
+        stagesCompleted: stages,
+      })
+    )
   }
 }
 
