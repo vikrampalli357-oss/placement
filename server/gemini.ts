@@ -114,12 +114,16 @@ function getApiKey(): string {
     try {
       const val = process.env[k]
       if (val && typeof val === 'string' && val.trim() !== '' && !val.includes('your_gemini_api_key')) {
+        console.log(`[Gemini] API key found — env var name: ${k}, length: ${val.trim().length} chars`)
         return val.trim()
       }
     } catch {
       // ignore
     }
   }
+
+  // Log which names were checked and not found
+  console.warn('[Gemini] API key NOT FOUND. Checked:', envKeys.join(', '))
 
   // 2. Check .env and .env.local in process.cwd() safely
   try {
@@ -137,6 +141,7 @@ function getApiKey(): string {
           if (match && match[1]) {
             const key = match[1].trim().replace(/^["']|["']$/g, '')
             if (key && !key.includes('your_gemini_api_key')) {
+              console.log(`[Gemini] API key loaded from .env file — var: ${k}, length: ${key.length} chars`)
               return key
             }
           }
@@ -177,6 +182,8 @@ async function callGemini(
 ): Promise<{ text: string; error?: string; status?: number }> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
 
+  console.log(`[Gemini] Gemini API request STARTED — model: ${model}, history length: ${history.length}`)
+
   const payload: any = {
     contents: history,
     systemInstruction: {
@@ -189,16 +196,23 @@ async function callGemini(
     },
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch (fetchErr: any) {
+    console.error(`[Gemini] Network error calling Gemini (model: ${model}):`, fetchErr?.message || fetchErr)
+    return { text: '', error: `Network error: ${fetchErr?.message || fetchErr}` }
+  }
+
+  console.log(`[Gemini] Gemini API response RECEIVED — model: ${model}, HTTP status: ${res.status}`)
 
   if (!res.ok) {
     const errorText = await res.text()
+    console.error(`[Gemini] Gemini API error — model: ${model}, status: ${res.status}, body: ${errorText.slice(0, 500)}`)
     return {
       text: '',
       error: `Gemini API returned status ${res.status}: ${errorText}`,
@@ -209,10 +223,12 @@ async function callGemini(
   const data = (await res.json()) as any
   const candidate = data.candidates?.[0]
   if (!candidate) {
+    console.error(`[Gemini] No candidate returned by model: ${model}. Full response: ${JSON.stringify(data).slice(0, 500)}`)
     return { text: '', error: 'No response candidate returned by Gemini.' }
   }
 
   const textPart = candidate.content?.parts?.map((p: any) => p.text).filter(Boolean).join('\n') || ''
+  console.log(`[Gemini] SUCCESS — model: ${model}, response length: ${textPart.length} chars`)
   return { text: textPart.trim() }
 }
 

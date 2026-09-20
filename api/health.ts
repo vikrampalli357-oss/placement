@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 
-// The exact env var names the code checks, in priority order.
-// The first one that is non-empty and valid is used.
+// The exact env var names the Gemini server code checks, in priority order.
 const CHECKED_KEYS = [
   'GEMINI_API_KEY',
   'GOOGLE_API_KEY',
@@ -22,7 +21,7 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
     return
   }
 
-  // Find which key (if any) is configured — NEVER log the value itself
+  // --- Check the exact names the code uses ---
   let foundKey: string | null = null
   let keyLength = 0
   const checkedResults: Record<string, string> = {}
@@ -40,20 +39,37 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
     }
   }
 
+  // --- Scan ALL env var NAMES for anything Gemini/Google related ---
+  // SAFE: only reports the KEY NAMES, never the values
+  const allEnvKeys = Object.keys(process.env)
+  const relatedKeyNames = allEnvKeys.filter((k) =>
+    /gemini|google|api_key/i.test(k)
+  )
+
+  // Count total env vars so we know Vercel is injecting them at all
+  const totalEnvCount = allEnvKeys.length
+
   res.setHeader('Content-Type', 'application/json')
   res.statusCode = 200
   res.end(
     JSON.stringify({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      // Safe: says YES or NO, never the key value
+
+      // --- Primary result ---
       geminiApiKeyConfigured: foundKey !== null ? 'YES' : 'NO',
-      // Which var name was found first (safe — just the name, not the value)
       activeKeyName: foundKey ?? null,
-      // How many chars long the key is (safe — lets you verify it isn't empty/truncated)
       activeKeyLength: keyLength > 0 ? keyLength : null,
-      // Status of every checked var name (safe — SET or NOT SET only)
+
+      // --- Exact names the code checks ---
       checkedVariables: checkedResults,
+
+      // --- DIAGNOSTIC: all env var NAMES that mention gemini/google/api_key ---
+      // This reveals the exact name Vercel has stored (without the value)
+      relatedEnvVarNamesFound: relatedKeyNames,
+
+      // --- Total env vars visible to this function ---
+      totalEnvVarsVisible: totalEnvCount,
     })
   )
 }
