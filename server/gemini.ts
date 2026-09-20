@@ -1,8 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http'
-import fs from 'fs'
-import path from 'path'
-import process from 'process'
-import { Buffer } from 'buffer'
+import * as fs from 'fs'
+import * as path from 'path'
 import { insertChatHistory, fetchChatHistory } from './supabase.js'
 
 // System Prompt for PlaceMate AI Placement Coach

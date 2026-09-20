@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import fs from 'fs'
-import path from 'path'
-import process from 'process'
+import * as fs from 'fs'
+import * as path from 'path'
+
 
 let cachedClient: SupabaseClient | null = null
 let hasLoggedConfig = false
