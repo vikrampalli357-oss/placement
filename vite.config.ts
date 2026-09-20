@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
-import { handleChatApi, handleHealthApi, handleHistoryApi } from './server/gemini.ts'
+import { handleChatApi, handleHealthApi, handleHistoryApi } from './server/gemini'
 
 function chatApiPlugin(): Plugin {
   return {
