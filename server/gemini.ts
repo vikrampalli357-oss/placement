@@ -470,7 +470,7 @@ export async function handleHistoryApi(req: IncomingMessage & { body?: any }, re
 
   // GET handling
   try {
-    const urlObj = new URL(req.url || '', 'http://localhost')
+    const urlObj = new URL(req.url || '', 'https://placemate.app')
     const pageParam = urlObj.searchParams.get('page')
     const pageSizeParam = urlObj.searchParams.get('pageSize')
 
