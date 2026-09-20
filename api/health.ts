@@ -1,5 +1,5 @@
-import type { IncomingMessage, ServerResponse } from 'node:http'
-import process from 'node:process'
+import type { IncomingMessage, ServerResponse } from 'http'
+import process from 'process'
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')
