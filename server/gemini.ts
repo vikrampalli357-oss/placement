@@ -100,15 +100,24 @@ CRITICAL BEHAVIOR GUIDELINES
 `
 
 function getApiKey(): string {
-  // Check process.env first
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '') {
-    return process.env.GEMINI_API_KEY.trim()
-  }
-  if (process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY.trim() !== '') {
-    return process.env.GOOGLE_API_KEY.trim()
+  const envKeys = [
+    'GEMINI_API_KEY',
+    'GOOGLE_API_KEY',
+    'VITE_GEMINI_API_KEY',
+    'GEMINI_KEY',
+    'GOOGLE_GEMINI_API_KEY',
+    'NEXT_PUBLIC_GEMINI_API_KEY',
+  ]
+
+  // 1. Check process.env first
+  for (const k of envKeys) {
+    const val = process.env[k]
+    if (val && typeof val === 'string' && val.trim() !== '' && !val.includes('your_gemini_api_key')) {
+      return val.trim()
+    }
   }
 
-  // Check .env in current directory or project root
+  // 2. Check .env and .env.local in process.cwd()
   const envPaths = [
     path.resolve(process.cwd(), '.env'),
     path.resolve(process.cwd(), '.env.local'),
@@ -118,11 +127,13 @@ function getApiKey(): string {
     if (fs.existsSync(envPath)) {
       try {
         const content = fs.readFileSync(envPath, 'utf-8')
-        const match = content.match(/^(?:GEMINI_API_KEY|GOOGLE_API_KEY)\s*=\s*(.+)$/m)
-        if (match && match[1]) {
-          const key = match[1].trim().replace(/^["']|["']$/g, '')
-          if (key && key !== 'your_gemini_api_key_here') {
-            return key
+        for (const k of envKeys) {
+          const match = content.match(new RegExp(`^(?:${k})\\s*=\\s*(.+)$`, 'm'))
+          if (match && match[1]) {
+            const key = match[1].trim().replace(/^["']|["']$/g, '')
+            if (key && !key.includes('your_gemini_api_key')) {
+              return key
+            }
           }
         }
       } catch {
@@ -147,11 +158,10 @@ export interface ChatRequestBody {
 
 const CANDIDATE_MODELS = [
   'gemini-3.6-flash',
-  'gemini-flash-latest',
   'gemini-flash-lite-latest',
-  'gemini-3.8-flash',
   'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
+  'gemini-flash-latest',
 ]
 
 async function callGemini(
@@ -208,7 +218,7 @@ export function setCorsHeaders(res: ServerResponse) {
 }
 
 export async function parseRequestBody<T = any>(req: any): Promise<T> {
-  // If Vercel or Express pre-parsed req.body
+  // 1. If Vercel or Express pre-parsed req.body
   if (req.body !== undefined && req.body !== null) {
     if (typeof req.body === 'object') {
       return req.body as T
@@ -220,27 +230,58 @@ export async function parseRequestBody<T = any>(req: any): Promise<T> {
         // Fallback to stream reading below
       }
     }
+    if (Buffer.isBuffer(req.body)) {
+      try {
+        return JSON.parse(req.body.toString('utf-8')) as T
+      } catch {
+        // Fallback to stream reading below
+      }
+    }
   }
 
-  // Otherwise read stream data (for Vite dev server)
-  return new Promise<T>((resolve, reject) => {
+  // 2. If request stream has already completed (common in serverless wrappers)
+  if (req.complete || req.readableEnded) {
+    return {} as T
+  }
+
+  // 3. Otherwise read stream data (for Vite dev server) with a 2.5s timeout safeguard
+  return new Promise<T>((resolve) => {
     let body = ''
+    let finished = false
+
+    const timeout = setTimeout(() => {
+      if (!finished) {
+        finished = true
+        try {
+          resolve(body.trim() ? JSON.parse(body) : ({} as T))
+        } catch {
+          resolve({} as T)
+        }
+      }
+    }, 2500)
+
     req.on('data', (chunk: any) => {
       body += chunk
     })
+
     req.on('end', () => {
-      if (!body.trim()) {
-        resolve({} as T)
-        return
-      }
-      try {
-        resolve(JSON.parse(body) as T)
-      } catch (err) {
-        reject(new Error('Invalid JSON request body'))
+      if (!finished) {
+        finished = true
+        clearTimeout(timeout)
+        try {
+          resolve(body.trim() ? JSON.parse(body) : ({} as T))
+        } catch {
+          resolve({} as T)
+        }
       }
     })
-    req.on('error', (err: any) => {
-      reject(err)
+
+    req.on('error', () => {
+      if (!finished) {
+        finished = true
+        clearTimeout(timeout)
+        resolve({} as T)
+      }
     })
   })
 }
