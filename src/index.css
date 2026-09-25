@@ -314,6 +314,7 @@ textarea {
 
 .bubble-row.user {
   justify-content: flex-end;
+  scroll-margin-top: 16px;
 }
 
 .avatar.assistant-avatar {

@@ -129,18 +129,15 @@ export function Chat() {
     return () => el.removeEventListener('scroll', handleThreadScroll)
   }, [handleThreadScroll])
 
-  // Scroll to user question when a new user question is submitted, keeping it anchored in position
+  // Scroll to new user question so it is positioned near the TOP of the chat visible area
   useEffect(() => {
     if (activeTab !== 'chat') return
     if (!lastUserMsgIdRef.current) return
 
-    const threadEl = threadRef.current
     const userEl = lastUserElementRef.current
-
-    if (threadEl && userEl) {
-      const targetTop = userEl.offsetTop - 16
-      threadEl.scrollTo({
-        top: Math.max(0, targetTop),
+    if (userEl) {
+      userEl.scrollIntoView({
+        block: 'start',
         behavior: 'smooth',
       })
     }
