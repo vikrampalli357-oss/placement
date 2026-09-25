@@ -87,7 +87,12 @@ export function Chat() {
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  // Track whether user is manually scrolled up (don't hijack scroll)
+
+  // Track the last submitted user message for scroll anchoring
+  const lastUserMsgIdRef = useRef<string | null>(null)
+  const lastUserElementRef = useRef<HTMLDivElement | null>(null)
+
+  // Track whether user is manually scrolled up
   const isAtBottomRef = useRef(true)
   const userScrolledUpRef = useRef(false)
 
@@ -106,7 +111,7 @@ export function Chat() {
     ta.style.overflowY = ta.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
   }, [input])
 
-  // Scroll position tracker to decide whether to auto-scroll
+  // Scroll position tracker to decide whether to show floating scroll-to-bottom button
   const handleThreadScroll = useCallback(() => {
     const el = threadRef.current
     if (!el) return
@@ -124,13 +129,22 @@ export function Chat() {
     return () => el.removeEventListener('scroll', handleThreadScroll)
   }, [handleThreadScroll])
 
-  // Smart auto-scroll: only scroll if user is at or near the bottom
+  // Scroll to user question when a new user question is submitted, keeping it anchored in position
   useEffect(() => {
     if (activeTab !== 'chat') return
-    if (isAtBottomRef.current || !userScrolledUpRef.current) {
-      endRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!lastUserMsgIdRef.current) return
+
+    const threadEl = threadRef.current
+    const userEl = lastUserElementRef.current
+
+    if (threadEl && userEl) {
+      const targetTop = userEl.offsetTop - 16
+      threadEl.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth',
+      })
     }
-  }, [messages, busy, activeTab])
+  }, [messages.length, activeTab])
 
   function scrollToBottom() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -191,6 +205,7 @@ export function Chat() {
     const text = q.trim()
     if (!text || busy) return
     const user: ChatMessage = { id: uid(), role: 'user', text }
+    lastUserMsgIdRef.current = user.id
     const nextMessages = [...messages, user]
     setMessages(nextMessages)
     setInput('')
@@ -200,9 +215,6 @@ export function Chat() {
       inputRef.current.style.overflowY = 'hidden'
     }
     setBusy(true)
-    // Force scroll to bottom when user sends message
-    isAtBottomRef.current = true
-    userScrolledUpRef.current = false
     setShowScrollBottom(false)
 
     try {
@@ -411,8 +423,14 @@ export function Chat() {
             role="log"
             aria-live="polite"
           >
-            {messages.map((m) => (
-              <div key={m.id} className={`bubble-row ${m.role}`}>
+            {messages.map((m) => {
+              const isLastUserMsg = m.id === lastUserMsgIdRef.current
+              return (
+                <div
+                  key={m.id}
+                  ref={isLastUserMsg ? (el) => { lastUserElementRef.current = el } : undefined}
+                  className={`bubble-row ${m.role}`}
+                >
                 {m.role === 'assistant' ? (
                   <div className="avatar assistant-avatar" title="PlaceMate AI">🤖</div>
                 ) : null}
@@ -427,10 +445,10 @@ export function Chat() {
                   {m.interview?.score != null ? <p className="score">⭐ Score: {m.interview.score}/10</p> : null}
                   {m.interview?.feedback ? <p className="pre">{m.interview.feedback}</p> : null}
                   {m.interview?.followUp ? <p className="pre follow">{m.interview.followUp}</p> : null}
-                  {m.interview?.summary ? <p className="pre final-plain">{m.interview.summary}</p> : null}
                 </div>
               </div>
-            ))}
+            )
+          })}
 
             {busy ? (
               <div className="bubble-row assistant">
