@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { SUGGESTIONS, SUGGESTION_TEXT, applyResume, handleTurn } from '../engine/coach'
 import type { ChatMessage, CoachSession } from '../types'
 import { MessageBody } from './MessageBody'
@@ -56,7 +56,6 @@ export function Chat() {
   const [busy, setBusy] = useState(false)
   const [session, setSession] = useState<CoachSession>({ mode: 'idle' })
   const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat')
-  const [showScrollBottom, setShowScrollBottom] = useState(false)
 
   // Dark Theme State with localStorage persistence
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -94,10 +93,6 @@ export function Chat() {
   // Only scroll to user message ONCE per submission (not on every AI chunk)
   const needsScrollRef = useRef(false)
 
-  // Track whether user is manually scrolled up
-  const isAtBottomRef = useRef(true)
-  const userScrolledUpRef = useRef(false)
-
   useEffect(() => {
     sessionRef.current = session
   }, [session])
@@ -112,24 +107,6 @@ export function Chat() {
     ta.style.height = `${Math.max(40, newHeight)}px`
     ta.style.overflowY = ta.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
   }, [input])
-
-  // Scroll position tracker to decide whether to show floating scroll-to-bottom button
-  const handleThreadScroll = useCallback(() => {
-    const el = threadRef.current
-    if (!el) return
-    const threshold = 80
-    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    isAtBottomRef.current = distFromBottom < threshold
-    userScrolledUpRef.current = distFromBottom > threshold
-    setShowScrollBottom(distFromBottom > threshold)
-  }, [])
-
-  useEffect(() => {
-    const el = threadRef.current
-    if (!el) return
-    el.addEventListener('scroll', handleThreadScroll, { passive: true })
-    return () => el.removeEventListener('scroll', handleThreadScroll)
-  }, [handleThreadScroll])
 
   // Scroll to new user question so it is positioned near the TOP of the chat visible area.
   // Only fires when needsScrollRef is true (set on submission), then clears the flag.
@@ -147,13 +124,6 @@ export function Chat() {
       }, 40)
     }
   }, [messages.length, activeTab])
-
-  function scrollToBottom() {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-    isAtBottomRef.current = true
-    userScrolledUpRef.current = false
-    setShowScrollBottom(false)
-  }
 
   // Initial load: Fetch total count from Supabase
   useEffect(() => {
@@ -218,7 +188,6 @@ export function Chat() {
       inputRef.current.style.overflowY = 'hidden'
     }
     setBusy(true)
-    setShowScrollBottom(false)
 
     try {
       const result = await handleTurn(text, sessionRef.current, nextMessages)
@@ -484,19 +453,6 @@ export function Chat() {
               }}
             />
           </div>
-
-          {/* Floating scroll-to-bottom button */}
-          {showScrollBottom ? (
-            <button
-              type="button"
-              className="scroll-to-bottom-btn"
-              onClick={scrollToBottom}
-              title="Scroll to latest message"
-              aria-label="Scroll to latest message"
-            >
-              ↓
-            </button>
-          ) : null}
 
           {/* ── Fixed Bottom Composer – NEVER scrolls ── */}
           <div className="composer">
