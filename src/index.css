@@ -237,9 +237,9 @@ textarea {
 .pane-head {
   flex-shrink: 0;
   padding: 14px max(calc((100% - 860px) / 2), 20px) 12px;
-  background: #FFFFFF;
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  background: linear-gradient(135deg, #FAF5FF 0%, #F5F3FF 50%, #EEF2FF 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+  box-shadow: 0 1px 6px rgba(124, 58, 237, 0.05);
   position: relative;
 }
 
@@ -409,8 +409,7 @@ textarea {
 
 .bubble.assistant {
   flex: 1;
-  width: 100%;
-  max-width: 100%;
+  max-width: calc(100% - 48px);
   background: #FFFFFF;
   border-color: var(--line);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
