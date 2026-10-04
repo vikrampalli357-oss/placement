@@ -91,6 +91,8 @@ export function Chat() {
   // Track the last submitted user message for scroll anchoring
   const lastUserMsgIdRef = useRef<string | null>(null)
   const lastUserElementRef = useRef<HTMLDivElement | null>(null)
+  // Only scroll to user message ONCE per submission (not on every AI chunk)
+  const needsScrollRef = useRef(false)
 
   // Track whether user is manually scrolled up
   const isAtBottomRef = useRef(true)
@@ -129,16 +131,19 @@ export function Chat() {
     return () => el.removeEventListener('scroll', handleThreadScroll)
   }, [handleThreadScroll])
 
-  // Scroll to new user question so it is positioned near the TOP of the chat visible area
+  // Scroll to new user question so it is positioned near the TOP of the chat visible area.
+  // Only fires when needsScrollRef is true (set on submission), then clears the flag.
   useEffect(() => {
     if (activeTab !== 'chat') return
-    if (!lastUserMsgIdRef.current) return
-
+    if (!needsScrollRef.current) return
     const userEl = lastUserElementRef.current
     if (userEl) {
-      userEl.scrollIntoView({
-        block: 'start',
-        behavior: 'smooth',
+      needsScrollRef.current = false
+      requestAnimationFrame(() => {
+        userEl.scrollIntoView({
+          block: 'start',
+          behavior: 'smooth',
+        })
       })
     }
   }, [messages.length, activeTab])
@@ -203,6 +208,7 @@ export function Chat() {
     if (!text || busy) return
     const user: ChatMessage = { id: uid(), role: 'user', text }
     lastUserMsgIdRef.current = user.id
+    needsScrollRef.current = true   // trigger one scroll when this message renders
     const nextMessages = [...messages, user]
     setMessages(nextMessages)
     setInput('')
