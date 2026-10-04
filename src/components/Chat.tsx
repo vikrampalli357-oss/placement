@@ -139,12 +139,12 @@ export function Chat() {
     const userEl = lastUserElementRef.current
     if (userEl) {
       needsScrollRef.current = false
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         userEl.scrollIntoView({
           block: 'start',
           behavior: 'smooth',
         })
-      })
+      }, 40)
     }
   }, [messages.length, activeTab])
 
@@ -474,7 +474,15 @@ export function Chat() {
                 </div>
               </div>
             ) : null}
-            <div ref={endRef} style={{ height: '1px' }} />
+            <div
+              ref={endRef}
+              style={{
+                height: messages.some((m) => m.role === 'user') ? 'calc(100vh - 280px)' : '1px',
+                minHeight: messages.some((m) => m.role === 'user') ? '350px' : '1px',
+                flexShrink: 0,
+                pointerEvents: 'none',
+              }}
+            />
           </div>
 
           {/* Floating scroll-to-bottom button */}
