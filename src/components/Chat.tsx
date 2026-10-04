@@ -456,9 +456,7 @@ export function Chat() {
                     <circle cx="29" cy="19.5" r="1.5" fill="#FFFFFF" />
                   </svg>
                 </div>
-                <div className="bubble assistant typing" aria-label="Thinking">
-                  <span /><span /><span />
-                </div>
+                <span className="typing-dot" aria-label="Thinking" />
               </div>
             ) : null}
             <div
