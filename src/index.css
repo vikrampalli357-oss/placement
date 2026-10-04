@@ -236,22 +236,11 @@ textarea {
 /* Header */
 .pane-head {
   flex-shrink: 0;
-  padding: 16px 24px 14px;
-  background: linear-gradient(135deg, #5B21B6 0%, #7C3AED 40%, #6366F1 80%, #4F46E5 100%);
-  border-bottom: none;
-  box-shadow: 0 4px 20px rgba(91, 33, 182, 0.35);
+  padding: 14px max(calc((100% - 860px) / 2), 20px) 12px;
+  background: #FFFFFF;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   position: relative;
-  overflow: hidden;
-}
-
-.pane-head::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 60% 80% at 0% 0%, rgba(255,255,255,0.10), transparent 55%),
-    radial-gradient(ellipse 40% 60% at 100% 100%, rgba(236,72,153,0.18), transparent 55%);
-  pointer-events: none;
 }
 
 .brand-inline {
@@ -259,8 +248,6 @@ textarea {
   align-items: center;
   gap: 14px;
   justify-content: space-between;
-  max-width: 860px;
-  margin: 0 auto;
   width: 100%;
 }
 
@@ -271,16 +258,16 @@ textarea {
 
 .pane-head h1 {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.03em;
-  color: #FFFFFF;
+  color: var(--ink);
 }
 
 .pane-head p {
   margin: 2px 0 0;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.84rem;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .head-title-row {
@@ -294,15 +281,14 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, var(--purple-primary), var(--purple-accent));
   color: #FFFFFF;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   padding: 3px 10px;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
 }
 
 .ai-badge::before {
@@ -320,23 +306,22 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
-  color: #FFFFFF;
+  background: var(--purple-vlight);
+  border: 1px solid var(--purple-border);
+  color: var(--purple-text);
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.06);
   flex-shrink: 0;
-  backdrop-filter: blur(6px);
 }
 
 .theme-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255, 255, 255, 0.6);
+  background: var(--purple-light);
+  border-color: var(--purple-primary);
   transform: scale(1.04);
 }
 
@@ -424,19 +409,20 @@ textarea {
 
 .bubble.assistant {
   flex: 1;
-  max-width: calc(100% - 48px);
+  width: 100%;
+  max-width: 100%;
   background: #FFFFFF;
-  border-color: rgba(226, 232, 240, 0.85);
-  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.05);
+  border-color: var(--line);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
   color: var(--ink);
 }
 
 .bubble.user {
   max-width: min(700px, 85%);
-  background: linear-gradient(135deg, #F3EEFF 0%, #EDE9FE 100%);
-  border-color: var(--purple-border);
+  background: #EDE9FE;
+  border: 1px solid var(--purple-border);
   color: var(--ink);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.06);
   border-top-right-radius: 6px;
 }
 
@@ -1340,13 +1326,17 @@ textarea {
 }
 
 [data-theme='dark'] .pane-head {
-  background: linear-gradient(135deg, #3B0764 0%, #5B21B6 40%, #4338CA 80%, #3730A3 100%);
-  border-bottom: none;
-  box-shadow: 0 4px 20px rgba(59, 7, 100, 0.5);
+  background: #0F0A1F;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+  box-shadow: none;
 }
 
 [data-theme='dark'] .pane-head h1 {
-  color: #FFFFFF;
+  color: #F8FAFC;
+}
+
+[data-theme='dark'] .pane-head p {
+  color: #94A3B8;
 }
 
 [data-theme='dark'] .mark {

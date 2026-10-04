@@ -451,42 +451,24 @@ export function Chat() {
                   ref={isLastUserMsg ? (el) => { lastUserElementRef.current = el } : undefined}
                   className={`bubble-row ${m.role}`}
                 >
-                {m.role === 'assistant' ? (
-                  <div className="avatar assistant-avatar" title="PlaceMate AI">
-                    <svg viewBox="0 0 32 32" fill="none" className="avatar-logo-svg">
-                      <path d="M16 5L3 11L16 17L29 11L16 5Z" fill="#FFFFFF" />
-                      <path d="M7 14.2V19.5C7 22.5 11 24.5 16 24.5C21 24.5 25 22.5 25 19.5V14.2" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-                      <path d="M29 11V18.5" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-                      <circle cx="29" cy="19.5" r="1.5" fill="#FFFFFF" />
-                    </svg>
+                  <div className={`bubble ${m.role}`}>
+                    {m.role === 'assistant' ? (
+                      <div className="ai-message-header">
+                        <span className="ai-name">PlaceMate AI</span>
+                      </div>
+                    ) : null}
+                    <MessageBody text={m.text} blocks={m.blocks} outcome={m.outcome} error={m.error} />
+                    {m.interview?.prompt ? <p className="pre">{m.interview.prompt}</p> : null}
+                    {m.interview?.score != null ? <p className="score">⭐ Score: {m.interview.score}/10</p> : null}
+                    {m.interview?.feedback ? <p className="pre">{m.interview.feedback}</p> : null}
+                    {m.interview?.followUp ? <p className="pre follow">{m.interview.followUp}</p> : null}
                   </div>
-                ) : null}
-                <div className={`bubble ${m.role}`}>
-                  {m.role === 'assistant' ? (
-                    <div className="ai-message-header">
-                      <span className="ai-name">PlaceMate AI</span>
-                    </div>
-                  ) : null}
-                  <MessageBody text={m.text} blocks={m.blocks} outcome={m.outcome} error={m.error} />
-                  {m.interview?.prompt ? <p className="pre">{m.interview.prompt}</p> : null}
-                  {m.interview?.score != null ? <p className="score">⭐ Score: {m.interview.score}/10</p> : null}
-                  {m.interview?.feedback ? <p className="pre">{m.interview.feedback}</p> : null}
-                  {m.interview?.followUp ? <p className="pre follow">{m.interview.followUp}</p> : null}
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
 
             {busy ? (
               <div className="bubble-row assistant">
-                <div className="avatar assistant-avatar" title="PlaceMate AI">
-                  <svg viewBox="0 0 32 32" fill="none" className="avatar-logo-svg">
-                    <path d="M16 5L3 11L16 17L29 11L16 5Z" fill="#FFFFFF" />
-                    <path d="M7 14.2V19.5C7 22.5 11 24.5 16 24.5C21 24.5 25 22.5 25 19.5V14.2" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-                    <path d="M29 11V18.5" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-                    <circle cx="29" cy="19.5" r="1.5" fill="#FFFFFF" />
-                  </svg>
-                </div>
                 <div className="bubble assistant typing" aria-label="Thinking">
                   <span /><span /><span />
                 </div>
