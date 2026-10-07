@@ -336,9 +336,8 @@ export function Chat() {
           <svg viewBox="0 0 32 32" fill="none" className="watermark-logo-svg">
             <defs>
               <linearGradient id="watermarkCapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#7C3AED" />
-                <stop offset="50%" stopColor="#8B5CF6" />
-                <stop offset="100%" stopColor="#6366F1" />
+                <stop offset="0%" stopColor="#FFFFFF" />
+                <stop offset="100%" stopColor="#E0E7FF" />
               </linearGradient>
             </defs>
             <path d="M16 5L3 11L16 17L29 11L16 5Z" fill="url(#watermarkCapGrad)" />
