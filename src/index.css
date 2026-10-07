@@ -335,6 +335,55 @@ textarea {
   letter-spacing: 0.02em;
 }
 
+/* Background Watermark Logo (Large, Centered, Subtle & Non-Intrusive) */
+.chat-background-watermark {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, 75vw);
+  height: min(440px, 75vw);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.055;
+  transition: opacity 0.3s ease;
+}
+
+[data-theme='dark'] .chat-background-watermark {
+  opacity: 0.075;
+}
+
+.watermark-glow {
+  position: absolute;
+  inset: -15%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, rgba(99, 102, 241, 0.25) 45%, transparent 70%);
+  filter: blur(32px);
+}
+
+.watermark-mark {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 50%, #6366F1 100%);
+  border: 4px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 40px rgba(124, 58, 237, 0.35);
+}
+
+.watermark-logo-svg {
+  width: 65%;
+  height: 65%;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+}
+
 /* Chat Messages Area */
 .thread {
   flex: 1 1 0%;
@@ -348,6 +397,8 @@ textarea {
   scroll-behavior: smooth;
   overscroll-behavior: contain;
   background: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 .bubble-row {
@@ -952,6 +1003,8 @@ textarea {
   padding: 10px max(calc((100% - 860px) / 2), 20px) 10px;
   background: #FFFFFF;
   border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 5;
 }
 
 .tab-btn {
@@ -1001,7 +1054,9 @@ textarea {
   gap: 16px;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
-  background: var(--bg);
+  background: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 .history-toolbar {

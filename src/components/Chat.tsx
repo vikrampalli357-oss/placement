@@ -329,6 +329,27 @@ export function Chat() {
         </button>
       </div>
 
+      {/* ── Subtle Background Watermark Logo (Existing PlaceMate AI Logo Asset) ── */}
+      <div className="chat-background-watermark" aria-hidden="true">
+        <div className="watermark-glow" />
+        <div className="watermark-mark">
+          <svg viewBox="0 0 32 32" fill="none" className="watermark-logo-svg">
+            <defs>
+              <linearGradient id="watermarkCapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#7C3AED" />
+                <stop offset="50%" stopColor="#8B5CF6" />
+                <stop offset="100%" stopColor="#6366F1" />
+              </linearGradient>
+            </defs>
+            <path d="M16 5L3 11L16 17L29 11L16 5Z" fill="url(#watermarkCapGrad)" />
+            <path d="M7 14.2V19.5C7 22.5 11 24.5 16 24.5C21 24.5 25 22.5 25 19.5V14.2" stroke="url(#watermarkCapGrad)" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M29 11V18.5" stroke="url(#watermarkCapGrad)" strokeWidth="2.2" strokeLinecap="round" />
+            <circle cx="29" cy="19.5" r="1.5" fill="url(#watermarkCapGrad)" />
+            <path d="M13 18H13.5M18.5 18H19" stroke="#7C3AED" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+      </div>
+
       {activeTab === 'history' ? (
         /* ── Supabase Chat History View (scrollable) ── */
         <div className="history-container">
@@ -448,14 +469,6 @@ export function Chat() {
 
             {busy ? (
               <div className="bubble-row assistant">
-                <div className="avatar assistant-avatar" title="PlaceMate AI">
-                  <svg viewBox="0 0 32 32" fill="none" className="avatar-logo-svg">
-                    <path d="M16 5L3 11L16 17L29 11L16 5Z" fill="#FFFFFF" />
-                    <path d="M7 14.2V19.5C7 22.5 11 24.5 16 24.5C21 24.5 25 22.5 25 19.5V14.2" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-                    <path d="M29 11V18.5" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-                    <circle cx="29" cy="19.5" r="1.5" fill="#FFFFFF" />
-                  </svg>
-                </div>
                 <span className="typing-dot" aria-label="Thinking" />
               </div>
             ) : null}
