@@ -57,21 +57,11 @@ export function Chat() {
   const [session, setSession] = useState<CoachSession>({ mode: 'idle' })
   const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat')
 
-  // Dark Theme State with localStorage persistence
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('pm_theme')
-    if (saved === 'dark' || saved === 'light') return saved
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  })
-
+  // Ensure Light Mode
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('pm_theme', theme)
-  }, [theme])
-
-  function toggleTheme() {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
-  }
+    document.documentElement.removeAttribute('data-theme')
+    localStorage.removeItem('pm_theme')
+  }, [])
 
   // Supabase Chat History state
   const [history, setHistory] = useState<HistoryItem[]>([])
@@ -289,16 +279,6 @@ export function Chat() {
             </div>
             <p>Your AI Placement Preparation Coach</p>
           </div>
-          <button
-            type="button"
-            className="theme-toggle-btn"
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle theme mode"
-          >
-            <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
-            <span className="theme-toggle-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-          </button>
         </div>
       </header>
 
